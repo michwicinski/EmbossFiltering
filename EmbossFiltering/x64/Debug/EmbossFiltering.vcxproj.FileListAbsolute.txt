@@ -1,0 +1,2 @@
+E:\Michal\Programowanie\ProjektGPU\EmbossFiltering\x64\Debug\EmbossFiltering.exe
+E:\Michal\Programowanie\ProjektGPU\EmbossFiltering\x64\Debug\EmbossFiltering.pdb

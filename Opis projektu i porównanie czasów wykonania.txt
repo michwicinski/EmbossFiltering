@@ -1,0 +1,49 @@
+Emboss filter
+
+Filtr ten sprawia, że na obrazie elementy się bardziej wyróżniają,
+nadają obrazowi głębi.
+
+Najpierw nakładam filtr za pomocą procesora na 1, 4, 8 i 12 wątkach,
+dzieląc obraz odpowiednio, żeby algorytm wykonywał się równolegle.
+Później na GPU wykorzystując jeden wątek na jeden piksel i porównuję ze sobą czasy wykonania.
+
+Procesor: Intel Core i7-9750H (6 rdzeni, 12 wątków)
+Karta graficzna: Nvidia GeForce GTX 1660Ti
+
+Wyniki pomiarów:
+Czas na GPU mierzę razem z kopiowaniem danych
+
+640x960
+1 watek - 0.366s
+4 watki - 0.126s
+8 watkow - 0.078s
+12 watkow - 0.074s
+GPU - 0.161s
+
+2880x1800
+1 watek - 3.09s
+4 watki - 0.821s
+8 watkow - 0.59s
+12 watkow - 0.548s
+GPU - 0.311s
+
+3648x5472
+1 watek - 11.929s
+4 watki - 3.14s
+8 watkow - 2.367s
+12 watkow - 2.076s
+GPU - 0.344s
+
+7952x5304
+1 watek - 25.934s
+4 watki - 7.767s
+8 watkow - 4.992s
+12 watkow - 4.381s
+GPU - 0.471s
+
+11846x9945
+1 watek - 71.778s
+4 watki - 21.08s
+8 watkow - 13.966s
+12 watkow - 12.26s
+GPU - 0.892s
