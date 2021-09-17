@@ -11,16 +11,17 @@ using namespace std;
 void callThreadsAndMeasureTimeOnCPU(bitmap_image& image, bitmap_image& outputImage, double timeTable[]);
 void embossFiltering(int whichOneThread, int threadsAmount, bitmap_image& image, bitmap_image& outputImage);
 void calculateNewPixelColorValues(bitmap_image& image, unsigned int x, unsigned int y, bitmap_image& outputImage);
-void prepareDataForGPUAndMeasureTime(unsigned char* imageRGBValues, unsigned char* outputImageRGBValues, int width, int height, int size, int row, double& timeGPU);
+void prepareDataForGPUAndMeasureTime(unsigned char* imageRGBValues, unsigned char* outputImageRGBValues, int width, int height, int size, int row, float& timeGPU);
 __global__ void embossFilteringOnGPU(unsigned char* imageRGBValues, unsigned char* outputImageRGBValues, int height, int width, int size, int row);
 __device__ void calculateNewPixelColorValuesOnGPU(unsigned char* imageRGBValues, int position, int width, int height, unsigned char* outputImageRGBValues);
 
 int main()
 {
-	bitmap_image image("640x960.bmp");
+	bitmap_image image("11846x9945.bmp");
 	bitmap_image outputImageCPU(image.width(), image.height());
 	bitmap_image outputImageGPU(image.width(), image.height());
-	double timeTable[4], timeGPU = 0;
+	double timeTable[4];
+	float timeGPU = 0.0;
 
 	callThreadsAndMeasureTimeOnCPU(image, outputImageCPU, timeTable);
 	outputImageCPU.save_image("outputImageCPU.bmp");
@@ -126,11 +127,15 @@ void calculateNewPixelColorValues(bitmap_image& image, unsigned int x, unsigned 
 	outputImage.set_pixel(x, y, rSum, gSum, bSum);
 }
 
-void prepareDataForGPUAndMeasureTime(unsigned char* imageRGBValues, unsigned char* outputImageRGBValues, int width, int height, int size, int row, double& timeGPU)
+void prepareDataForGPUAndMeasureTime(unsigned char* imageRGBValues, unsigned char* outputImageRGBValues, int width, int height, int size, int row, float& timeGPU)
 {
 	unsigned char* imageRGBValuesGPU, * outputImageRGBValuesGPU;
 
-	auto begin = chrono::high_resolution_clock::now();
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
+	cudaEventRecord(start, 0);
 
 	cudaMalloc((void**)&imageRGBValuesGPU, size);
 	cudaMalloc((void**)&outputImageRGBValuesGPU, size);
@@ -141,11 +146,15 @@ void prepareDataForGPUAndMeasureTime(unsigned char* imageRGBValues, unsigned cha
 
 	cudaMemcpy(outputImageRGBValues, outputImageRGBValuesGPU, size, cudaMemcpyDeviceToHost);
 
-	auto end = chrono::high_resolution_clock::now();
+	cudaEventRecord(stop, 0);
 
-	chrono::duration<double> diff = end - begin;
+	cudaEventSynchronize(stop);
 
-	timeGPU = chrono::duration<double>(diff).count();
+	cudaEventElapsedTime(&timeGPU, start, stop);
+	timeGPU /= 1000.0;
+
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
 }
 
 __global__ void embossFilteringOnGPU(unsigned char* imageRGBValues, unsigned char* outputImageRGBValues, int width, int height, int size, int row)
@@ -159,12 +168,12 @@ __global__ void embossFilteringOnGPU(unsigned char* imageRGBValues, unsigned cha
 	int y = i / row;
 	int x = (i - y * row) / 3;
 
-	if (y + 1 >= height || y - 1 < 0)
+	if (y < 0 || y > height)
 		return;
-	if (x + 1 >= width || x - 1 < 0)
+	if (x < 0 || x > row)
 		return;
 
-	int pixelPosistion = y * row + 3 * x;;
+	int pixelPosistion = y * row + 3 * x;
 
 	calculateNewPixelColorValuesOnGPU(imageRGBValues, pixelPosistion, width, height, outputImageRGBValues);
 }
@@ -172,7 +181,7 @@ __global__ void embossFilteringOnGPU(unsigned char* imageRGBValues, unsigned cha
 __device__ void calculateNewPixelColorValuesOnGPU(unsigned char* imageRGBValues, int position, int width, int height, unsigned char* outputImageRGBValues)
 {
 	int pos[] = { 3 * -width + 3 * -1, 3 * -width, 3 * -width + 3 * 1, 3 * -1, 0, 3 * 1, 3 * width + 3 * -1, 3 * width, 3 * width + 3 * 1 };
-	int mask[9] = { -2, -1, 0, -1, 1, 1, 0, 1, 2 };
+	int mask[] = { -2, -1, 0, -1, 1, 1, 0, 1, 2 };
 
 	int rSum = 0, bSum = 0, gSum = 0;
 	for (int i = 0; i < 9; i++)
